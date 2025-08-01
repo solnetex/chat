@@ -1,37 +1,40 @@
-import socket
-import threading
+import socketio
 
-def receive_messages(sock):
-    while True:
-        try:
-            msg = sock.recv(1024)
-            if not msg:
-                break
-            print(msg.decode())
-        except:
-            break
+sio = socketio.Client()
 
 def main():
     host = input("Enter server IP (e.g., 192.168.1.x): ")
     port = 5000
     username = input("Enter your username: ")
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((host, port))
+    @sio.event
+    def connect():
+        print("Connected to server.")
 
-    threading.Thread(target=receive_messages, args=(sock,), daemon=True).start()
+    @sio.event
+    def disconnect():
+        print("Disconnected from server.")
+
+    @sio.on("message")
+    def on_message(data):
+        if isinstance(data, dict) and 'user' in data and 'text' in data:
+            print(f"{data['user']}: {data['text']}")
+        else:
+            print(data)
+
+    sio.connect(f"http://{host}:{port}")
 
     print("You can start typing messages. Press Ctrl+C to exit.")
-    while True:
-        try:
+    try:
+        while True:
             msg = input()
             if msg.strip() == "":
                 continue
-            sock.send(f"{username}: {msg}".encode())
-        except KeyboardInterrupt:
-            break
-
-    sock.close()
+            sio.send({'user': username, 'text': msg})
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sio.disconnect()
 
 if __name__ == "__main__":
     main()
